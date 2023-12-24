@@ -1,6 +1,7 @@
 import pygame
 from game_states import MenuState
 #Pixabay
+#thanks to Lesiakower
 class Game:
     def __init__(self, width, height):
         pygame.init()

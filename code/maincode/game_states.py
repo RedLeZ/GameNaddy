@@ -5,12 +5,14 @@ import random
 import time
 from button import Button
 from text import Text
+from jsonReader import *
 import sys
 from pygame.math import Vector2
 
 
-#don't mind him
-pygame.mixer.init()
+# don't mind him
+
+
 class Projectile:
     def __init__(self, x, y, size, color, target_x, target_y, player_rect, speed):
         self.rect = pygame.Rect(x, y, size, size)
@@ -138,6 +140,12 @@ class RestartState:
             (255, 255, 255),
             self.back_to_menu,
         )
+        Sc = LoadJson("data.json")
+        self.maxScore = Sc["MaxScore"]
+        self.MaxScore = Text(
+            48, f"Max Score :{self.maxScore}", (255, 255, 255), 200, 350
+        )
+        
 
     def restart_game(self):
         new_state = GameState(self.game)
@@ -164,6 +172,7 @@ class RestartState:
     def draw(self, screen):
         screen.fill((0, 0, 0))
         self.title.draw(screen)
+        self.MaxScore.draw(screen)
         self.restart_button.draw(screen)
         self.back_to_menu_button.draw(screen)
 
@@ -173,12 +182,17 @@ class GameState:
         self.game = game
         self.score = 0
         self.score_text = Text(36, f"Score: {self.score}", (255, 255, 255), 10, 10)
+        pygame.mixer.init()
         self.pop_sound = pygame.mixer.Sound("pop.mp3")
         background_image_path = "Image.png"
         self.background_image = pygame.image.load(background_image_path).convert()
         self.background_image = pygame.transform.scale(
             self.background_image, (self.game.width, self.game.height)
         )
+        pygame.mixer.init()
+        pygame.mixer.music.load("music.mp3")
+        pygame.mixer.music.play(-1)
+
         # Rectangle (target) properties
         self.target_width = 50
         self.target_height = 50
@@ -196,7 +210,9 @@ class GameState:
         self.hearts = 3
         self.heart_size = 30
         self.heart_image = pygame.image.load("hrt.png").convert_alpha()
-        self.heart_image = pygame.transform.scale(self.heart_image, (self.heart_size, self.heart_size))
+        self.heart_image = pygame.transform.scale(
+            self.heart_image, (self.heart_size, self.heart_size)
+        )
         self.hearts_images = [
             pygame.Rect(
                 10 + i * (self.heart_size + 5), 50, self.heart_size, self.heart_size
@@ -323,8 +339,6 @@ class GameState:
         pygame.draw.rect(screen, self.restricted_zone_color, self.restricted_zone)
         screen.blit(self.background_image, (0, 0))
 
-        
-
         pygame.draw.rect(screen, self.target_color, self.player)
 
         for projectile in self.projectiles:
@@ -349,3 +363,12 @@ class GameState:
     def game_over(self):
         new_state = RestartState(self.game)
         self.game.set_state(new_state)
+        Sc = LoadJson("data.json")
+        self.maxScore = Sc["MaxScore"]
+        if self.score > self.maxScore:
+            self.maxScore = self.score
+            UpdateJson("data.json", "MaxScore", self.score)
+        else:
+            pass
+        
+        pygame.mixer.music.stop()
