@@ -1,14 +1,16 @@
 import pygame
 from game_states import MenuState
-#Pixabay
-#thanks to Lesiakower
+
+
+# Pixabay
+# thanks to Lesiakower
 class Game:
     def __init__(self, width, height):
         pygame.init()
         self.width = width
         self.height = height
         self.screen = pygame.display.set_mode((width, height))
-        pygame.display.set_caption("FIX BY FORCE PPA 0.1658v")
+        pygame.display.set_caption("DEFENDE YASSINE")
 
         self.current_state = MenuState(self)
 
@@ -21,11 +23,9 @@ class Game:
         while running:
             events = pygame.event.get()
 
-            
             self.current_state.handle_events(events)
             self.current_state.update()
 
-            
             self.current_state.draw(self.screen)
 
             pygame.display.flip()

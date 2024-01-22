@@ -1,31 +1,39 @@
-# game_states.py
-from importlib_metadata import Prepared
+import os
+import sys
 import pygame
 import random
 import time
 from button import Button
 from text import Text
-from jsonReader import *
-import sys
+from jsonReader import LoadJson, UpdateJson
 from pygame.math import Vector2
 
 
-# don't mind him
-
-
 class Projectile:
-    def __init__(self, x, y, size, color, target_x, target_y, player_rect, speed):
+    def __init__(
+        self, x, y, size, images_folder, target_x, target_y, player_rect, speed
+    ):
         self.rect = pygame.Rect(x, y, size, size)
-        self.color = color
+        self.images_folder = images_folder
+        self.images = self.load_images(size)
+        self.image = random.choice(self.images)
         self.speed = speed
         self.target_x = target_x
         self.target_y = target_y
-        self.player_rect = player_rect  # Pass the player's rect as an argument
+        self.player_rect = player_rect
+
+    def load_images(self, size):
+        image_files = [f for f in os.listdir(self.images_folder) if f.endswith(".png")]
+        images = [
+            pygame.transform.scale(
+                pygame.image.load(os.path.join(self.images_folder, f)), (size, size)
+            )
+            for f in image_files
+        ]
+        return images
 
     def move_towards_player(self):
-        if not self.rect.colliderect(
-            self.player_rect
-        ):  # Check if not already colliding with the player
+        if not self.rect.colliderect(self.player_rect):
             self.calculate_direction()
             self.rect.x += int(round(self.speed * self.direction.x))
             self.rect.y += int(round(self.speed * self.direction.y))
@@ -33,14 +41,12 @@ class Projectile:
     def calculate_direction(self):
         target_position = Vector2(self.target_x, self.target_y)
         self_position = Vector2(self.rect.x, self.rect.y)
-
-        # Check if the projectile is not at the same position as the player
         if self_position != target_position:
             self.direction = target_position - self_position
             self.direction.normalize_ip()
 
     def draw(self, screen):
-        pygame.draw.rect(screen, self.color, self.rect)
+        screen.blit(self.image, self.rect)
 
 
 class MenuState:
@@ -65,7 +71,7 @@ class MenuState:
         for event in events:
             if event.type == pygame.QUIT:
                 pygame.quit()
-                sys.exit()
+                quit()
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if self.start_button.is_mouse_over():
                     self.start_button.perform_action()
@@ -82,7 +88,7 @@ class MenuState:
 class LevelsState:
     def __init__(self, game):
         self.game = game
-        self.title = Text(48, "Levels State", (255, 255, 255), 200, 100)
+        self.title = Text(48, "Select Level", (255, 255, 255), 200, 100)
         self.endless_button = Button(
             200,
             200,
@@ -102,7 +108,7 @@ class LevelsState:
         for event in events:
             if event.type == pygame.QUIT:
                 pygame.quit()
-                sys.exit()
+                quit()
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if self.endless_button.is_mouse_over():
                     self.endless_button.perform_action()
@@ -140,12 +146,9 @@ class RestartState:
             (255, 255, 255),
             self.back_to_menu,
         )
-        Sc = LoadJson("data.json")
-        self.maxScore = Sc["MaxScore"]
-        self.MaxScore = Text(
-            48, f"Max Score :{self.maxScore}", (255, 255, 255), 200, 350
+        self.max_score_text = Text(
+            48, f"Max Score: {self.load_max_score()}", (255, 255, 255), 200, 350
         )
-        
 
     def restart_game(self):
         new_state = GameState(self.game)
@@ -159,7 +162,7 @@ class RestartState:
         for event in events:
             if event.type == pygame.QUIT:
                 pygame.quit()
-                sys.exit()
+                quit()
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if self.restart_button.is_mouse_over():
                     self.restart_button.perform_action()
@@ -172,16 +175,25 @@ class RestartState:
     def draw(self, screen):
         screen.fill((0, 0, 0))
         self.title.draw(screen)
-        self.MaxScore.draw(screen)
+        self.max_score_text.draw(screen)
         self.restart_button.draw(screen)
         self.back_to_menu_button.draw(screen)
+
+    def load_max_score(self):
+        data = LoadJson("data.json")
+        return data["MaxScore"]
 
 
 class GameState:
     def __init__(self, game):
         self.game = game
         self.score = 0
+        self.screen_shake_intensity = 20
+        self.screen_shake_duration = 0.5
+        self.screen_shake_timer = 0
+        self.clock = pygame.time.Clock()
         self.score_text = Text(36, f"Score: {self.score}", (255, 255, 255), 10, 10)
+
         pygame.mixer.init()
         self.pop_sound = pygame.mixer.Sound("pop.mp3")
         background_image_path = "Image.png"
@@ -193,21 +205,24 @@ class GameState:
         pygame.mixer.music.load("music.mp3")
         pygame.mixer.music.play(-1)
 
-        # Rectangle (target) properties
         self.target_width = 50
         self.target_height = 50
-        self.target_color = (0, 255, 0)
         self.target_x = (self.game.width - self.target_width) // 2
         self.target_y = (self.game.height - self.target_height) // 2
+        self.original_player_position = (self.target_x, self.target_y)
+        self.player_position = self.original_player_position
+        self.isHurt = False
+        self.player_image = pygame.image.load("player.png").convert_alpha()
+        self.player_image = pygame.transform.scale(
+            self.player_image, (self.target_width, self.target_height)
+        )
 
-        # Projectiles properties
         self.projectile_size = 50
-        self.projectile_color = (0, 255, 0)
         self.projectiles = []
         self.projectile_speed = 1
         self.last_projectile_spawn_time = time.time()
-        # Hearts properties
-        self.hearts = 3
+
+        self.hearts = 100
         self.heart_size = 30
         self.heart_image = pygame.image.load("hrt.png").convert_alpha()
         self.heart_image = pygame.transform.scale(
@@ -220,22 +235,19 @@ class GameState:
             for i in range(self.hearts)
         ]
 
-        # Wave system properties
-        self.wave_duration = 30  # Wave duration in seconds
+        self.wave_duration = 30
         self.wave_timer = time.time()
         self.wave_number = 1
 
-        # Player properties
         self.player = pygame.Rect(
             self.target_x, self.target_y, self.target_width, self.target_height
         )
 
-        # Player vulnerability cooldown
         self.player_vulnerability_cooldown = 0.145
         self.player_last_hit_time = 0
         self.player_vulnerable = True
+        self.hurt_sound = pygame.mixer.Sound("hurt.mp3")
 
-        # Restricted zone properties
         self.restricted_zone_size = 300
         self.restricted_zone_color = (0, 0, 0, 128)
         self.restricted_zone = pygame.Rect(
@@ -245,6 +257,12 @@ class GameState:
             self.restricted_zone_size,
         )
 
+
+        
+    def load_max_score(self):
+        data = LoadJson("data.json")
+        return data["MaxScore"]
+    
     def handle_events(self, events):
         for event in events:
             if event.type == pygame.QUIT:
@@ -264,22 +282,20 @@ class GameState:
                     self.pop_sound.play()
 
     def update(self):
-        # Update wave system
         current_time = time.time()
+
         if current_time - self.wave_timer > self.wave_duration:
             self.start_new_wave()
 
-        # Spawn projectiles periodically outside the restricted zone
-        if current_time - self.last_projectile_spawn_time > 5:  # Spawn every 5 seconds
-            self.last_projectile_spawn_time = current_time  # Update last spawn time
+        if current_time - self.last_projectile_spawn_time > 5:
+            self.last_projectile_spawn_time = current_time
 
-            for _ in range(3):  # Spawn 3 projectiles
+            for _ in range(3):
                 projectile_x = random.randint(0, self.game.width - self.projectile_size)
                 projectile_y = random.randint(
                     0, self.game.height - self.projectile_size
                 )
 
-                # Ensure the projectile is outside the restricted zone
                 while self.restricted_zone.colliderect(
                     pygame.Rect(
                         projectile_x,
@@ -299,7 +315,7 @@ class GameState:
                     projectile_x,
                     projectile_y,
                     self.projectile_size,
-                    self.projectile_color,
+                    "images/",
                     self.target_x + self.target_width / 2,
                     self.target_y + self.target_height / 2,
                     self.player,
@@ -307,11 +323,9 @@ class GameState:
                 )
                 self.projectiles.append(projectile)
 
-        # Update projectiles
         for projectile in self.projectiles:
             projectile.move_towards_player()
 
-            # Check if projectile touches the player
             if projectile.rect.colliderect(self.player) and self.player_vulnerable:
                 self.player_vulnerable = False
                 self.player_last_hit_time = time.time()
@@ -319,12 +333,13 @@ class GameState:
                 if self.hearts > 0:
                     self.hearts -= 1
 
+                    self.hurt_sound.play()
+
                 self.projectiles.remove(projectile)
 
                 if self.hearts == 0:
                     self.game_over()
 
-        # Check player vulnerability cooldown
         if (
             not self.player_vulnerable
             and time.time() - self.player_last_hit_time
@@ -332,14 +347,15 @@ class GameState:
         ):
             self.player_vulnerable = True
 
-        # Update score text
         self.score_text.text = f"Score: {self.score}"
+
+        self.draw(self.game.screen)
 
     def draw(self, screen):
         pygame.draw.rect(screen, self.restricted_zone_color, self.restricted_zone)
         screen.blit(self.background_image, (0, 0))
 
-        pygame.draw.rect(screen, self.target_color, self.player)
+        screen.blit(self.player_image, self.player.topleft)
 
         for projectile in self.projectiles:
             projectile.draw(screen)
@@ -354,6 +370,8 @@ class GameState:
         )
         wave_text.draw(screen)
 
+        self.player.topleft = self.original_player_position
+
     def start_new_wave(self):
         self.wave_number += 1
         self.wave_timer = time.time()
@@ -363,12 +381,11 @@ class GameState:
     def game_over(self):
         new_state = RestartState(self.game)
         self.game.set_state(new_state)
-        Sc = LoadJson("data.json")
-        self.maxScore = Sc["MaxScore"]
-        if self.score > self.maxScore:
+        max_score = self.load_max_score()
+        if self.score > max_score:
             self.maxScore = self.score
             UpdateJson("data.json", "MaxScore", self.score)
         else:
             pass
-        
+
         pygame.mixer.music.stop()
