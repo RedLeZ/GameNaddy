@@ -222,7 +222,7 @@ class GameState:
         self.projectile_speed = 1
         self.last_projectile_spawn_time = time.time()
 
-        self.hearts = 100
+        self.hearts = 5
         self.heart_size = 30
         self.heart_image = pygame.image.load("hrt.png").convert_alpha()
         self.heart_image = pygame.transform.scale(
@@ -235,7 +235,7 @@ class GameState:
             for i in range(self.hearts)
         ]
 
-        self.wave_duration = 3
+        self.wave_duration = 30
         self.wave_timer = time.time()
         self.wave_number = 1
 
@@ -257,12 +257,10 @@ class GameState:
             self.restricted_zone_size,
         )
 
-
-        
     def load_max_score(self):
         data = LoadJson("data.json")
         return data["MaxScore"]
-    
+
     def handle_events(self, events):
         for event in events:
             if event.type == pygame.QUIT:
