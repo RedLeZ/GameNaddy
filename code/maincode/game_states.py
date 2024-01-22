@@ -235,7 +235,7 @@ class GameState:
             for i in range(self.hearts)
         ]
 
-        self.wave_duration = 30
+        self.wave_duration = 3
         self.wave_timer = time.time()
         self.wave_number = 1
 
