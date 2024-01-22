@@ -52,7 +52,7 @@ class Projectile:
 class MenuState:
     def __init__(self, game):
         self.game = game
-        self.title = Text(48, "Defend By Force", (255, 255, 255), 180, 100)
+        self.title = Text(48, "DEFENDE YASSINE", (255, 255, 255), 180, 100)
         self.start_button = Button(
             200,
             200,
