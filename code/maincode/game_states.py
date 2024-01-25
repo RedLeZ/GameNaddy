@@ -5,6 +5,7 @@ import random
 import time
 from button import Button
 from text import Text
+from shop_item import ShopItem
 from jsonReader import LoadJson, UpdateJson
 from pygame.math import Vector2
 
@@ -51,8 +52,14 @@ class Projectile:
 
 class MenuState:
     def __init__(self, game):
+        pygame.mixer.music.stop()
         self.game = game
+        self.game_state = GameState(self.game)
         self.title = Text(48, "DEFENDE YASSINE", (255, 255, 255), 180, 100)
+        self.background_image = pygame.image.load("menu_background.png").convert()
+        self.background_image = pygame.transform.scale(
+            self.background_image, (self.game.width, self.game.height)
+        )
         self.start_button = Button(
             200,
             200,
@@ -63,9 +70,23 @@ class MenuState:
             (255, 255, 255),
             self.start_game,
         )
+        self.shop_button = Button(
+            200,
+            300,
+            200,
+            30,
+            (0, 128, 255),
+            "Shop",
+            (255, 255, 255),
+            self.go_to_shop,
+        )
 
     def start_game(self):
         self.game.set_state(LevelsState(self.game))
+
+    def go_to_shop(self):
+        new_state = ShopState(self.game, self.game_state)
+        self.game.set_state(new_state)
 
     def handle_events(self, events):
         for event in events:
@@ -73,22 +94,29 @@ class MenuState:
                 pygame.quit()
                 quit()
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                if self.start_button.is_mouse_over():
+                if self.start_button.is_mouse_over() and event.button == 1:
                     self.start_button.perform_action()
+                elif self.shop_button.is_mouse_over() and event.button == 1:
+                    self.shop_button.perform_action()
 
     def update(self):
         pass
 
     def draw(self, screen):
-        screen.fill((0, 0, 0))
+        screen.blit(self.background_image, (0, 0))
         self.title.draw(screen)
         self.start_button.draw(screen)
+        self.shop_button.draw(screen)
 
 
 class LevelsState:
     def __init__(self, game):
         self.game = game
         self.title = Text(48, "Select Level", (255, 255, 255), 200, 100)
+        self.background_image = pygame.image.load("menu_background.png").convert()
+        self.background_image = pygame.transform.scale(
+            self.background_image, (self.game.width, self.game.height)
+        )
         self.endless_button = Button(
             200,
             200,
@@ -117,7 +145,7 @@ class LevelsState:
         pass
 
     def draw(self, screen):
-        screen.fill((0, 0, 0))
+        screen.blit(self.background_image, (0, 0))
         self.title.draw(screen)
         self.endless_button.draw(screen)
 
@@ -126,6 +154,10 @@ class RestartState:
     def __init__(self, game):
         self.game = game
         self.title = Text(48, "Game Over", (255, 255, 255), 200, 100)
+        self.background_image = pygame.image.load("menu_background.png").convert()
+        self.background_image = pygame.transform.scale(
+            self.background_image, (self.game.width, self.game.height)
+        )
         self.restart_button = Button(
             200,
             200,
@@ -173,7 +205,7 @@ class RestartState:
         pass
 
     def draw(self, screen):
-        screen.fill((0, 0, 0))
+        screen.blit(self.background_image, (0, 0))
         self.title.draw(screen)
         self.max_score_text.draw(screen)
         self.restart_button.draw(screen)
@@ -193,6 +225,7 @@ class GameState:
         self.screen_shake_timer = 0
         self.clock = pygame.time.Clock()
         self.score_text = Text(36, f"Score: {self.score}", (255, 255, 255), 10, 10)
+        self.coins = self.load_coins()
 
         pygame.mixer.init()
         self.pop_sound = pygame.mixer.Sound("pop.mp3")
@@ -203,6 +236,7 @@ class GameState:
         )
         pygame.mixer.init()
         pygame.mixer.music.load("music.mp3")
+
         pygame.mixer.music.play(-1)
 
         self.target_width = 50
@@ -212,7 +246,10 @@ class GameState:
         self.original_player_position = (self.target_x, self.target_y)
         self.player_position = self.original_player_position
         self.isHurt = False
-        self.player_image = pygame.image.load("player.png").convert_alpha()
+        self.data = LoadJson("data.json")
+
+        self.playerSkin = self.data["equipped_skin"]
+        self.player_image = pygame.image.load(self.playerSkin).convert_alpha()
         self.player_image = pygame.transform.scale(
             self.player_image, (self.target_width, self.target_height)
         )
@@ -260,6 +297,14 @@ class GameState:
     def load_max_score(self):
         data = LoadJson("data.json")
         return data["MaxScore"]
+
+    def load_skin(self):
+        data = LoadJson("data.json")
+        return data["equipped_skin"]
+
+    def load_coins(self):
+        data = LoadJson("data.json")
+        return data.get("coins", 0)
 
     def handle_events(self, events):
         for event in events:
@@ -379,6 +424,14 @@ class GameState:
     def game_over(self):
         new_state = RestartState(self.game)
         self.game.set_state(new_state)
+
+        # Update last_score in data.json
+        UpdateJson("data.json", "last_score", self.score)
+
+        # Calculate coins based on last_score
+        coins_earned = self.score // 10
+        UpdateJson("data.json", "coins", coins_earned)
+
         max_score = self.load_max_score()
         if self.score > max_score:
             self.maxScore = self.score
@@ -387,3 +440,117 @@ class GameState:
             pass
 
         pygame.mixer.music.stop()
+
+
+class ShopState:
+    def __init__(self, game, game_state):
+        pygame.mixer.music.stop()
+        self.game = game
+        self.game_state = game_state
+        self.shop_items = []
+        self.selected_item = None
+        self.background_image = pygame.image.load("shop.png").convert()
+        self.background_image = pygame.transform.scale(
+            self.background_image, (self.game.width, self.game.height)
+        )
+        self.title = Text(48, "Shop m3a Jma3a", (255, 255, 255), 200, 100)
+        self.items = [
+            ShopItem(50, 200, 100, 100, "item1.png", 45, "A GIRL"),
+            ShopItem(200, 200, 100, 100, "item2.png", 999, "TDDQ"),
+            ShopItem(350, 200, 100, 100, "player.png", 20, "LEGEND WHITE")
+            # Add more items as needed
+        ]
+        self.back_button = Button(
+            200,
+            500,
+            200,
+            30,
+            (0, 128, 255),
+            "Back to Main Menu",
+            (255, 255, 255),
+            self.back_to_menu,
+        )
+
+    def back_to_menu(self):
+        new_state = MenuState(self.game)
+        self.game.set_state(new_state)
+
+    def handle_events(self, events):
+        for event in events:
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                # Check if an item is clicked
+                clicked_items = [
+                    item for item in self.items if item.rect.collidepoint(event.pos)
+                ]
+
+                if clicked_items:
+                    clicked_item = clicked_items[0]
+
+                if self.game_state.coins >= clicked_item.price:
+                    clicked_item.is_selected = not clicked_item.is_selected
+
+                    # If the item is selected, deduct the price from coins
+                    if clicked_item.is_selected:
+                        self.game_state.coins -= clicked_item.price
+
+                    # Handle equipment if the item is clicked again
+                    else:
+                        self.equip_item(clicked_item)
+
+    def equip_item(self, item):
+        UpdateJson("data.json", "equipped_skin", item.image_path)
+
+    def update(self):
+        UpdateJson("data.json", "coins", self.game_state.coins)
+
+    def draw(self, screen):
+        screen.blit(self.background_image, (0, 0))
+        coins_text = Text(
+            20, f"Coins: {self.game_state.coins}", (255, 255, 255), 10, 10
+        )
+        coins_text.draw(screen)
+        self.title.draw(screen)
+
+        for item in self.items:
+            item.draw(screen, 0)
+
+        self.back_button.draw(screen)
+
+
+class ShopItem:
+    def __init__(self, x, y, width, height, image_path, price, name):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.image_path = image_path
+        self.image = pygame.image.load(image_path).convert_alpha()
+        self.image = pygame.transform.scale(self.image, (width, height))
+        self.name = name
+        self.price = price
+        self.is_selected = False  # Track if the item is selected
+
+    def draw(self, screen, scroll_y):
+        screen.blit(self.image, (self.rect.x, self.rect.y - scroll_y))
+
+        # Display the name below the item
+        name_text = Text(
+            18,
+            self.name,
+            (255, 255, 255),
+            self.rect.x,
+            self.rect.y + self.rect.height + 5 - scroll_y,
+        )
+        name_text.draw(screen)
+        if self.is_selected:
+            pygame.draw.rect(screen, (255, 255, 255), self.rect, 2)
+
+        # Display the price below the name
+        price_text = Text(
+            16,
+            f"Price: {self.price}",
+            (255, 255, 255),
+            self.rect.x,
+            self.rect.y + self.rect.height + 25 - scroll_y,
+        )
+        price_text.draw(screen)

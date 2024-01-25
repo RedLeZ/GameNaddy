@@ -1,7 +1,5 @@
 import pygame
 from game_states import MenuState
-
-
 # Pixabay
 # thanks to Lesiakower
 class Game:
@@ -16,6 +14,10 @@ class Game:
 
     def set_state(self, new_state):
         self.current_state = new_state
+        
+    def handle_events(self, events):
+        for event in events:
+            self.current_state.handle_events(event)
 
     def run(self):
         clock = pygame.time.Clock()

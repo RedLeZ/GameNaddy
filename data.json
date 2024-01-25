@@ -1,3 +1,6 @@
 {
-  "MaxScore": 65
+  "MaxScore": 0,
+  "LastScore": 0,
+  "coins": 17,
+  "equipped_skin": "player.png"
 }
