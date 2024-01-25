@@ -52,7 +52,7 @@ class Projectile:
 
 class MenuState:
     def __init__(self, game):
-        pygame.mixer.music.stop()
+        
         self.game = game
         self.game_state = GameState(self.game)
         self.title = Text(48, "DEFENDE YASSINE", (255, 255, 255), 180, 100)
@@ -100,6 +100,7 @@ class MenuState:
                     self.shop_button.perform_action()
 
     def update(self):
+        pygame.mixer.music.stop()
         pass
 
     def draw(self, screen):
