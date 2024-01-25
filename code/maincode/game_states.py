@@ -52,7 +52,6 @@ class Projectile:
 
 class MenuState:
     def __init__(self, game):
-        
         self.game = game
         self.game_state = GameState(self.game)
         self.title = Text(48, "DEFENDE YASSINE", (255, 255, 255), 180, 100)
@@ -462,12 +461,12 @@ class ShopState:
             # Add more items as needed
         ]
         self.back_button = Button(
-            200,
-            500,
-            200,
+            525,
+            370,
+            75,
             30,
             (0, 128, 255),
-            "Back to Main Menu",
+            "Back",
             (255, 255, 255),
             self.back_to_menu,
         )
@@ -477,29 +476,35 @@ class ShopState:
         self.game.set_state(new_state)
 
     def handle_events(self, events):
+        clicked_item = None
+
         for event in events:
             if event.type == pygame.QUIT:
                 pygame.quit()
                 quit()
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                # Check if an item is clicked
-                clicked_items = [
-                    item for item in self.items if item.rect.collidepoint(event.pos)
-                ]
+                if self.back_button.rect.collidepoint(event.pos):
+                    self.back_to_menu()
 
+                clicked_items = [
+                    item
+                    for item in self.shop_items
+                    if item.rect.collidepoint(event.pos)
+                ]
                 if clicked_items:
                     clicked_item = clicked_items[0]
 
-                if self.game_state.coins >= clicked_item.price:
-                    clicked_item.is_selected = not clicked_item.is_selected
+                    
+                    if clicked_item is not None and self.game_state.coins >= clicked_item.price:
+                        clicked_item.is_selected = not clicked_item.is_selected
 
-                    # If the item is selected, deduct the price from coins
-                    if clicked_item.is_selected:
-                        self.game_state.coins -= clicked_item.price
+                        
+                        if clicked_item.is_selected:
+                            self.game_state.coins -= clicked_item.price
 
-                    # Handle equipment if the item is clicked again
-                    else:
-                        self.equip_item(clicked_item)
+                        
+                        else:
+                            self.equip_item(clicked_item)
 
     def equip_item(self, item):
         UpdateJson("data.json", "equipped_skin", item.image_path)
