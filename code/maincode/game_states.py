@@ -430,7 +430,10 @@ class GameState:
 
         # Calculate coins based on last_score
         coins_earned = self.score // 10
-        UpdateJson("data.json", "coins", coins_earned)
+        current_coins = LoadJson("data.json")["coins"]
+        new_coins_value = current_coins + coins_earned
+        # Update the JSON with the new value of coins
+        UpdateJson("data.json", "coins", new_coins_value)
 
         max_score = self.load_max_score()
         if self.score > max_score:
@@ -494,15 +497,15 @@ class ShopState:
                 if clicked_items:
                     clicked_item = clicked_items[0]
 
-                    
-                    if clicked_item is not None and self.game_state.coins >= clicked_item.price:
+                    if (
+                        clicked_item is not None
+                        and self.game_state.coins >= clicked_item.price
+                    ):
                         clicked_item.is_selected = not clicked_item.is_selected
 
-                        
                         if clicked_item.is_selected:
                             self.game_state.coins -= clicked_item.price
 
-                        
                         else:
                             self.equip_item(clicked_item)
 
