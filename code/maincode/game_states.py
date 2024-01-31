@@ -450,7 +450,7 @@ class ShopState:
         pygame.mixer.music.stop()
         self.game = game
         self.game_state = game_state
-        self.shop_items = []
+        self.shop_items = []  # Add this line to store shop items
         self.selected_item = None
         self.background_image = pygame.image.load("shop.png").convert()
         self.background_image = pygame.transform.scale(
@@ -463,6 +463,10 @@ class ShopState:
             ShopItem(350, 200, 100, 100, "player.png", 20, "LEGEND WHITE")
             # Add more items as needed
         ]
+
+        # Add the items to the shop_items list
+        self.shop_items.extend(self.items)
+
         self.back_button = Button(
             525,
             370,
@@ -489,6 +493,7 @@ class ShopState:
                 if self.back_button.rect.collidepoint(event.pos):
                     self.back_to_menu()
 
+                # Check for clicks on items in shop_items list
                 clicked_items = [
                     item
                     for item in self.shop_items
@@ -505,7 +510,6 @@ class ShopState:
 
                         if clicked_item.is_selected:
                             self.game_state.coins -= clicked_item.price
-
                         else:
                             self.equip_item(clicked_item)
 
